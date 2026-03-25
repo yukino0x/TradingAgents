@@ -1,3 +1,4 @@
+import os
 from typing import Any, Optional
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -27,9 +28,24 @@ class GoogleClient(BaseLLMClient):
         """Return configured ChatGoogleGenerativeAI instance."""
         llm_kwargs = {"model": self.model}
 
-        for key in ("timeout", "max_retries", "google_api_key", "callbacks", "http_client", "http_async_client"):
+        for key in (
+            "timeout",
+            "max_retries",
+            "api_key",
+            "google_api_key",
+            "callbacks",
+            "http_client",
+            "http_async_client",
+        ):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
+
+        # LangChain Google client accepts `api_key`.
+        # Prefer explicit kwargs, then environment fallbacks.
+        if "api_key" not in llm_kwargs:
+            env_api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+            if env_api_key:
+                llm_kwargs["api_key"] = env_api_key
 
         # Map thinking_level to appropriate API param based on model
         # Gemini 3 Pro: low, high
