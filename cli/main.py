@@ -5,10 +5,11 @@ import typer
 from pathlib import Path
 from functools import wraps
 from rich.console import Console
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from the user's working tree (.env in cwd/parents),
+# not from site-packages location.
+load_dotenv(find_dotenv(usecwd=True))
 from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.live import Live
