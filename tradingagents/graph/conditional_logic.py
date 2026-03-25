@@ -27,6 +27,14 @@ class ConditionalLogic:
             return "tools_social"
         return "Msg Clear Social"
 
+    def should_continue_price_action(self, state: AgentState):
+        """Determine if price action analysis should continue."""
+        messages = state["messages"]
+        last_message = messages[-1]
+        if last_message.tool_calls:
+            return "tools_price_action"
+        return "Msg Clear Price Action"
+
     def should_continue_news(self, state: AgentState):
         """Determine if news analysis should continue."""
         messages = state["messages"]
