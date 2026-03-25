@@ -1,5 +1,6 @@
 from typing import Optional
 import datetime
+import os
 import typer
 from pathlib import Path
 from functools import wraps
@@ -961,13 +962,50 @@ def run_analysis():
     selected_set = {analyst.value for analyst in selections["analysts"]}
     selected_analyst_keys = [a for a in ANALYST_ORDER if a in selected_set]
 
+    # Validate provider API key before graph/LLM initialization so we can fail gracefully.
+    provider_env_map = {
+        "openai": ["OPENAI_API_KEY"],
+        "google": ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
+        "anthropic": ["ANTHROPIC_API_KEY"],
+        "xai": ["XAI_API_KEY"],
+        "openrouter": ["OPENROUTER_API_KEY"],
+    }
+    provider = config["llm_provider"]
+    required_envs = provider_env_map.get(provider, [])
+    if required_envs and not any(os.getenv(env) for env in required_envs):
+        env_hint = " or ".join(required_envs)
+        console.print(
+            Panel(
+                f"[red]Missing API key for provider '{provider}'.[/red]\n"
+                f"Please set [bold]{env_hint}[/bold] and try again.",
+                title="Configuration Error",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+
     # Initialize the graph with callbacks bound to LLMs
-    graph = TradingAgentsGraph(
-        selected_analyst_keys,
-        config=config,
-        debug=True,
-        callbacks=[stats_handler],
-    )
+    try:
+        graph = TradingAgentsGraph(
+            selected_analyst_keys,
+            config=config,
+            debug=True,
+            callbacks=[stats_handler],
+        )
+    except Exception as e:
+        err = str(e)
+        if "API key required" in err or "api_key" in err:
+            console.print(
+                Panel(
+                    f"[red]LLM initialization failed:[/red] {err}\n\n"
+                    f"Provider: [bold]{provider}[/bold]\n"
+                    f"Expected environment variable(s): [bold]{' or '.join(required_envs) if required_envs else 'See provider docs'}[/bold]",
+                    title="Initialization Error",
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(code=1)
+        raise
 
     # Initialize message buffer with selected analysts
     message_buffer.init_for_analysis(selected_analyst_keys)
